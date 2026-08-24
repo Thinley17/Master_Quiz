@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Import Questions - QuizMaster{% endblock %}
+
+{% block content %}
+<div class="page-heading dashboard-head">
+    <div>
+        <div class="eyebrow">Excel import</div>
+        <h1>Import questions</h1>
+        <p class="text-muted mb-0">{{ quiz.title }} - upload, preview, then confirm.</p>
+    </div>
+    <a href="{% url 'quiz:question_list' quiz.id %}" class="btn btn-light"><i class="fas fa-arrow-left me-1"></i> Questions</a>
+</div>
+
+<section class="surface-section">
+    <div class="import-guide">
+        <i class="fas fa-circle-info"></i>
+        <span>Required columns:</span>
+        <strong>order</strong><strong>question</strong><strong>choice1</strong><strong>choice2</strong><strong>choice3</strong><strong>choice4</strong><strong>correct_answer</strong>
+        <span>Correct answer can be A-D, 1-4, or the exact option text.</span>
+        <a href="{% url 'quiz:download_import_template' quiz.id %}"><i class="fas fa-download"></i> Download Excel template</a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="upload-panel">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="mb-3">
+                {{ field.label_tag }}
+                {{ field }}
+                <div class="form-text">{{ field.help_text }}</div>
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary"><i class="fas fa-eye me-1"></i> Preview Questions</button>
+    </form>
+</section>
+
+{% if preview_rows %}
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Preview</div>
+            <h2>{{ preview_rows|length }} question{{ preview_rows|length|pluralize }} ready to import</h2>
+        </div>
+    </div>
+    <div class="responsive-table">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Excel row</th>
+                    <th>Order</th>
+                    <th>Question</th>
+                    <th>Correct answer</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_rows %}
+                    <tr>
+                        <td>{{ row.source_row }}</td>
+                        <td>{% if row.order %}{{ row.order }}{% else %}Auto{% endif %}</td>
+                        <td>
+                            <strong>{{ row.question }}</strong>
+                            <span>{{ row.choices|join:", " }}</span>
+                        </td>
+                        <td><span class="qnum-chip">{{ row.correct_index }}</span></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <form method="post" class="confirm-import">
+        {% csrf_token %}
+        <input type="hidden" name="payload" value="{{ preview_payload }}">
+        <button type="submit" name="confirm_import" value="1" class="btn btn-primary"><i class="fas fa-check me-1"></i> Confirm Import</button>
+        <a href="{% url 'quiz:bulk_question_import' quiz.id %}" class="btn btn-light">Upload Again</a>
+    </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,6 @@
+Django==4.2.30
+openpyxl==3.1.5
+# source venv/Scripts/activate
+# python manage.py migrate
+# python manage.py createsuperuser
+# python manage.py runserver 

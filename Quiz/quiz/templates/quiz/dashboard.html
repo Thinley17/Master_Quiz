@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - QuizMaster{% endblock %}
+
+{% block content %}
+{% if teacher_dashboard %}
+<div class="page-heading dashboard-head">
+    <div>
+        <div class="eyebrow">Teacher dashboard</div>
+        <h1>Manage your quizzes</h1>
+        <p class="text-muted mb-0">Create, publish, and review student attempts from one place.</p>
+    </div>
+    <a href="{% url 'quiz:quiz_create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Create Quiz</a>
+</div>
+
+<div class="metric-grid">
+    <article class="metric-card"><span class="metric-icon"><i class="fas fa-folder-open"></i></span><span>Total quizzes</span><strong>{{ total_quizzes }}</strong></article>
+    <article class="metric-card"><span class="metric-icon icon-green"><i class="fas fa-bolt"></i></span><span>Active</span><strong>{{ status_counts.Active }}</strong></article>
+    <article class="metric-card"><span class="metric-icon icon-amber"><i class="far fa-clock"></i></span><span>Upcoming</span><strong>{{ status_counts.Upcoming }}</strong></article>
+    <article class="metric-card"><span class="metric-icon icon-slate"><i class="fas fa-users"></i></span><span>Attempts</span><strong>{{ total_attempts }}</strong></article>
+</div>
+
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Quiz management</div>
+            <h2>My quizzes</h2>
+        </div>
+        <a href="{% url 'quiz:quiz_list' %}" class="btn btn-light">View all</a>
+    </div>
+    <div class="responsive-table">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Quiz</th>
+                    <th>Status</th>
+                    <th>Questions</th>
+                    <th>Attempts</th>
+                    <th>Schedule</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quiz in quizzes %}
+                    <tr>
+                        <td>
+                            <strong>{{ quiz.title }}</strong>
+                            <span>{{ quiz.subject.name }}</span>
+                        </td>
+                        <td><span class="status-pill status-{{ quiz.status_slug }}">{{ quiz.status_label }}</span></td>
+                        <td>{{ quiz.get_question_count }}</td>
+                        <td>{{ quiz.attempt_count }}</td>
+                        <td>
+                            {% if quiz.start_time %}{{ quiz.start_time|date:"M j, g:i A" }}{% else %}Any time{% endif %}
+                            {% if quiz.end_time %}<span>to {{ quiz.end_time|date:"M j, g:i A" }}</span>{% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="table-actions">
+                                <a href="{% url 'quiz:quiz_detail' quiz.id %}" class="btn btn-sm btn-light">View</a>
+                                <a href="{% url 'quiz:question_list' quiz.id %}" class="btn btn-sm btn-outline-primary">Questions</a>
+                                <a href="{% url 'quiz:teacher_quiz_results' quiz.id %}" class="btn btn-sm btn-outline-secondary">Results</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="fas fa-clipboard-list"></i>
+                                <h3>You have not created any quizzes yet.</h3>
+                                <p>Create your first quiz, add questions, then publish it for students.</p>
+                                <a href="{% url 'quiz:quiz_create' %}" class="btn btn-primary">Create Your First Quiz</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Recent activity</div>
+            <h2>Student attempts</h2>
+        </div>
+    </div>
+    <div class="responsive-table">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Quiz</th>
+                    <th>Score</th>
+                    <th>Submitted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in recent_attempts %}
+                    <tr>
+                        <td><span class="student-chip" data-initial="{{ result.user.username|slice:':1' }}">{{ result.user.username }}</span></td>
+                        <td>{{ result.quiz.title }}</td>
+                        <td>
+                            <div class="score-line">
+                                <strong>{{ result.correct_answers }}/{{ result.total_questions }}</strong>
+                                <small>{{ result.score|floatformat:1 }}%</small>
+                                <i class="bar"><b style="width: {{ result.score|stringformat:'.0f' }}%;"></b></i>
+                            </div>
+                        </td>
+                        <td>{{ result.date_taken|date:"M j, Y g:i A" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4"><div class="empty-row">No students have attempted your quizzes yet.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% else %}
+<div class="page-heading dashboard-head">
+    <div>
+        <div class="eyebrow">Student dashboard</div>
+        <h1>Your quiz space</h1>
+        <p class="text-muted mb-0">Find available quizzes and review your previous attempts.</p>
+    </div>
+    <a href="{% url 'quiz:quiz_list' %}" class="btn btn-primary"><i class="fas fa-list me-1"></i> Browse Quizzes</a>
+</div>
+
+<div class="metric-grid metric-grid-3">
+    <article class="metric-card"><span class="metric-icon"><i class="fas fa-pen-to-square"></i></span><span>Quizzes taken</span><strong>{{ total_quizzes_taken }}</strong></article>
+    <article class="metric-card"><span class="metric-icon icon-green"><i class="fas fa-bullseye"></i></span><span>Average score</span><strong>{{ avg_score|floatformat:1 }}%</strong></article>
+    <article class="metric-card"><span class="metric-icon icon-slate"><i class="fas fa-book-open"></i></span><span>Available now</span><strong>{{ quizzes|length }}</strong></article>
+</div>
+
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Available now</div>
+            <h2>Start these quizzes</h2>
+        </div>
+        <span class="count-label">{{ quizzes|length }} open</span>
+    </div>
+    <div class="quiz-grid p-tile-grid">
+        {% for quiz in quizzes %}
+            <article class="quiz-tile">
+                <div class="tile-top">
+                    <span>{{ quiz.subject.name }}</span>
+                    <span class="status-pill status-{{ quiz.status_slug }}">{{ quiz.status_label }}</span>
+                </div>
+                <h3>{{ quiz.title }}</h3>
+                <p>{{ quiz.description|default:"No description added."|truncatechars:110 }}</p>
+                <div class="tile-meta">
+                    <span><i class="far fa-user"></i> {{ quiz.created_by.username }}</span>
+                    <span><i class="fas fa-circle-question"></i> {{ quiz.get_question_count }} questions</span>
+                    <span><i class="far fa-clock"></i> {% if quiz.duration_minutes %}{{ quiz.duration_minutes }} min{% else %}No fixed duration{% endif %}</span>
+                </div>
+                <a href="{% url 'quiz:quiz_detail' quiz.id %}" class="btn btn-outline-primary w-100 mt-auto">View Details</a>
+            </article>
+        {% empty %}
+            <div class="empty-state full-width">
+                <i class="fas fa-circle-info"></i>
+                <h3>No quizzes are open right now.</h3>
+                <p>When a teacher publishes a quiz, it will appear here.</p>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+{% if upcoming_quizzes %}
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Coming up</div>
+            <h2>Upcoming quizzes</h2>
+        </div>
+        <span class="count-label">{{ upcoming_quizzes|length }} scheduled</span>
+    </div>
+    <div class="quiz-grid p-tile-grid">
+        {% for quiz in upcoming_quizzes %}
+            <article class="quiz-tile">
+                <div class="tile-top">
+                    <span>{{ quiz.subject.name }}</span>
+                    <span class="status-pill status-{{ quiz.status_slug }}">{{ quiz.status_label }}</span>
+                </div>
+                <h3>{{ quiz.title }}</h3>
+                <p>{{ quiz.description|default:"No description added."|truncatechars:110 }}</p>
+                <div class="tile-meta">
+                    <span><i class="far fa-calendar"></i> {% if quiz.start_time %}Starts {{ quiz.start_time|date:"M j, g:i A" }}{% else %}Any time{% endif %}</span>
+                    <span><i class="fas fa-circle-question"></i> {{ quiz.get_question_count }} questions</span>
+                </div>
+                <a href="{% url 'quiz:quiz_detail' quiz.id %}" class="btn btn-outline-primary w-100 mt-auto">View Details</a>
+            </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if ended_quizzes %}
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Closed</div>
+            <h2>Ended quizzes</h2>
+        </div>
+        <span class="count-label">{{ ended_quizzes|length }} ended</span>
+    </div>
+    <div class="quiz-grid p-tile-grid">
+        {% for quiz in ended_quizzes %}
+            <article class="quiz-tile">
+                <div class="tile-top">
+                    <span>{{ quiz.subject.name }}</span>
+                    <span class="status-pill status-{{ quiz.status_slug }}">{{ quiz.status_label }}</span>
+                </div>
+                <h3>{{ quiz.title }}</h3>
+                <p>{{ quiz.description|default:"No description added."|truncatechars:110 }}</p>
+                <div class="tile-meta">
+                    <span><i class="far fa-user"></i> {{ quiz.created_by.username }}</span>
+                    <span><i class="fas fa-circle-question"></i> {{ quiz.get_question_count }} questions</span>
+                    {% if quiz.end_time %}<span><i class="far fa-calendar"></i> Ended {{ quiz.end_time|date:"M j, g:i A" }}</span>{% endif %}
+                </div>
+                {% if quiz.user_latest_result %}
+                    <a href="{% url 'quiz:result' quiz.id %}" class="btn btn-primary w-100 mt-auto">View Result</a>
+                {% else %}
+                    <span class="btn btn-light w-100 disabled mt-auto mb-0" aria-disabled="true">Quiz ended</span>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Previous attempts</div>
+            <h2>Recent results</h2>
+        </div>
+    </div>
+    <div class="responsive-table">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Quiz</th>
+                    <th>Subject</th>
+                    <th>Score</th>
+                    <th>Date</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                    <tr>
+                        <td><strong>{{ result.quiz.title }}</strong></td>
+                        <td>{{ result.quiz.subject.name }}</td>
+                        <td>
+                            <div class="score-line">
+                                <strong>{{ result.correct_answers }}/{{ result.total_questions }}</strong>
+                                <small>{{ result.score|floatformat:1 }}%</small>
+                                <i class="bar"><b style="width: {{ result.score|stringformat:'.0f' }}%;"></b></i>
+                            </div>
+                        </td>
+                        <td>{{ result.date_taken|date:"M j, Y" }}</td>
+                        <td class="text-end"><a href="{% url 'quiz:result' result.quiz.id %}" class="btn btn-sm btn-light">View Result</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5"><div class="empty-row">You have not attempted any quizzes yet.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

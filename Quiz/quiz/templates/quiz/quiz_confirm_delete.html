@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Delete Quiz - QuizMaster{% endblock %}
+{% block content %}
+<div class="delete-card">
+    <i class="fas fa-exclamation-triangle delete-icon-bubble" style="color:#dc3545;"></i>
+    <h3 class="mt-3">Confirm Deletion</h3>
+    <p>Are you sure you want to delete the quiz <strong>&ldquo;{{ object.title }}&rdquo;</strong>? This action cannot be undone.</p>
+    <form method="post" class="d-flex justify-content-center flex-wrap gap-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i> Yes, delete</button>
+        <a href="{% url 'quiz:quiz_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

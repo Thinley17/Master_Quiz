@@ -1,0 +1,15 @@
+# Python and Django generated files
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.log
+
+# Node
+node_modules/
+
+# Local environments and editor files
+venv/
+.venv/
+.idea/
+.vscode/
+.env

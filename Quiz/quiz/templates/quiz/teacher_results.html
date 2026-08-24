@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Results - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="page-heading dashboard-head">
+    <div>
+        <div class="eyebrow">{{ quiz.subject.name }}</div>
+        <h1>Results for {{ quiz.title }}</h1>
+        <p class="text-muted mb-0">Only attempts for quizzes created by you are shown here.</p>
+    </div>
+    <a href="{% url 'quiz:quiz_detail' quiz.id %}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Quiz Details</a>
+</div>
+
+<div class="metric-grid metric-grid-3">
+    <article class="metric-card"><span class="metric-icon icon-slate"><i class="fas fa-users"></i></span><span>Total attempts</span><strong>{{ attempt_count }}</strong></article>
+    <article class="metric-card"><span class="metric-icon icon-green"><i class="fas fa-bullseye"></i></span><span>Average score</span><strong>{{ average_score|floatformat:1 }}%</strong></article>
+    <article class="metric-card"><span class="metric-icon"><i class="fas fa-circle-question"></i></span><span>Questions</span><strong>{{ quiz.get_question_count }}</strong></article>
+</div>
+
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Student scores</div>
+            <h2>Attempts</h2>
+        </div>
+    </div>
+    <div class="responsive-table">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Score</th>
+                    <th>Percentage</th>
+                    <th>Submitted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                    <tr>
+                        <td><span class="student-chip" data-initial="{{ result.user.username|slice:':1' }}">{{ result.user.username }}</span></td>
+                        <td>{{ result.correct_answers }} / {{ result.total_questions }}</td>
+                        <td>
+                            <div class="score-line">
+                                <small>{{ result.score|floatformat:1 }}%</small>
+                                <i class="bar"><b style="width: {{ result.score|stringformat:'.0f' }}%;"></b></i>
+                            </div>
+                        </td>
+                        <td>{{ result.date_taken|date:"M j, Y g:i A" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-chart-simple"></i>
+                                <h3>No student attempts yet.</h3>
+                                <p>When students submit this quiz, their scores will appear here.</p>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

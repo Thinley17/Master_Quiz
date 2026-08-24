@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Result - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<section class="result-shell">
+    <div class="surface-section result-card">
+        <div class="result-head">
+            <span class="eyebrow">Quiz result</span>
+            <h1>{{ quiz.title }}</h1>
+            <div class="score-ring" style="--pct: {{ result.score|stringformat:'.0f' }};" role="img" aria-label="Score {{ result.score|floatformat:0 }} percent">
+                <span>{{ result.score|floatformat:0 }}%</span>
+            </div>
+            <strong class="verdict-badge verdict-{% if result.score >= 50 %}pass{% else %}low{% endif %}">
+                <i class="fas {% if result.score >= 50 %}fa-circle-check{% else %}fa-arrow-trend-up{% endif %}"></i>
+                {% if result.score >= 50 %}Passed{% else %}Needs improvement{% endif %}
+            </strong>
+            <p>{{ result.correct_answers }} correct out of {{ result.total_questions }} questions.</p>
+        </div>
+
+        <div class="result-body">
+            <div class="info-list">
+                <div><span>Subject</span><strong>{{ quiz.subject.name }}</strong></div>
+                <div><span>Teacher</span><strong>{{ quiz.created_by.username }}</strong></div>
+                <div><span>Score</span><strong>{{ result.correct_answers }} / {{ result.total_questions }}</strong></div>
+                <div><span>Percentage</span><strong>{{ result.score|floatformat:1 }}%</strong></div>
+                <div><span>Submitted</span><strong>{{ result.date_taken|date:"M j, Y g:i A" }}</strong></div>
+            </div>
+        </div>
+
+        <div class="result-actions">
+            <a href="{% url 'quiz:quiz_list' %}" class="btn btn-primary">Back to Quizzes</a>
+            <a href="{% url 'quiz:dashboard' %}" class="btn btn-light">Dashboard</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

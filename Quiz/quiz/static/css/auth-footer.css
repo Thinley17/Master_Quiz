@@ -1,0 +1,125 @@
+.auth-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: calc(100vh - 180px);
+}
+
+.auth-panel {
+    display: flex;
+    align-items: center;
+    padding: clamp(2rem, 6vw, 6rem);
+}
+
+.auth-welcome {
+    width: min(100%, 470px);
+    margin: 0;
+}
+
+.auth-welcome h1 {
+    max-width: none;
+    font-size: clamp(2.8rem, 5vw, 5rem);
+    line-height: 1.06;
+    white-space: normal;
+}
+
+.auth-welcome p {
+    max-width: 430px;
+    font-size: 1rem;
+}
+
+.footer-custom {
+    padding: 2.4rem 0 1rem;
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 2rem;
+    padding-bottom: 2rem;
+}
+
+.footer-grid > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .45rem;
+}
+
+.footer-grid p,
+.footer-grid a,
+.footer-grid strong,
+.footer-bottom {
+    font-family: 'DM Sans', sans-serif;
+}
+
+.footer-grid p {
+    margin: .6rem 0 0;
+    color: #bfdbfe;
+    font-size: .88rem;
+}
+
+.footer-grid strong {
+    margin-bottom: .25rem;
+    color: #fff;
+    font-size: .78rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.footer-grid a {
+    color: #c7d2fe;
+    font-size: .88rem;
+    text-decoration: none;
+}
+
+.footer-grid a:hover {
+    color: #fff;
+}
+
+.footer-brand {
+    color: #fff !important;
+    font-family: Manrope, sans-serif !important;
+    font-size: 1.15rem !important;
+    font-weight: 800;
+}
+
+.footer-brand i {
+    color: #7dd3fc;
+}
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ffffff26;
+    color: #bfdbfe;
+    font-size: .78rem;
+}
+
+@media (max-width: 767px) {
+    .auth-layout {
+        display: block;
+        min-height: 0;
+    }
+
+    .auth-panel {
+        min-height: 300px;
+        padding: 2.5rem 1.5rem;
+    }
+
+    .auth-welcome h1 {
+        font-size: 2.8rem;
+    }
+
+    .footer-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .footer-grid > div:first-child {
+        grid-column: span 2;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+    }
+}

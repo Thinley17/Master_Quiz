@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}{% if editing %}Edit Question{% else %}Add Question{% endif %} - QuizMaster{% endblock %}
+
+{% block content %}
+<div class="builder-page narrow-builder">
+    <div class="builder-heading">
+        <div>
+            <span class="eyebrow">{{ quiz.subject.name }}</span>
+            <h1>{% if editing %}Edit question{% else %}Add a question{% endif %}</h1>
+            <p>{{ quiz.title }} - four options, one correct answer.</p>
+        </div>
+        <a href="{% url 'quiz:question_list' quiz.id %}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+    </div>
+
+    <form method="post" class="builder-card">
+        {% csrf_token %}
+        {% for field in question_form %}
+            <div class="mb-3">
+                {{ field.label_tag }}
+                {{ field }}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        {{ question_form.non_field_errors }}
+
+        <div class="builder-card-title mt-4">
+            <span class="step-number">A</span>
+            <div>
+                <h2>Answer choices</h2>
+                <p>Mark exactly one option as correct.</p>
+            </div>
+        </div>
+        <div class="answer-grid">
+            {% for form in choice_forms %}
+                <div class="answer-input">
+                    <span class="answer-letter">{{ forloop.counter }}</span>
+                    <div>
+                        {{ form.text }}
+                        {{ form.text.errors }}
+                        <div class="form-check mt-2">
+                            {{ form.is_correct }}
+                            <label class="form-check-label" for="{{ form.is_correct.id_for_label }}">Correct answer</label>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="builder-actions">
+            <a href="{% url 'quiz:question_list' quiz.id %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Save Question</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

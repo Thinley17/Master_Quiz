@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}{% if object %}Edit Quiz{% else %}Create Quiz{% endif %} - QuizMaster{% endblock %}
+
+{% block content %}
+<div class="builder-page">
+    <div class="builder-heading">
+        <div>
+            <span class="eyebrow">Teacher workspace</span>
+            <h1>{% if object %}Edit quiz{% else %}Create a new quiz{% endif %}</h1>
+            <p>{% if object %}Update schedule, attempts, and publish status.{% else %}Select a subject, set the schedule, then add questions now.{% endif %}</p>
+        </div>
+        <a href="{% url 'quiz:quiz_list' %}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row g-4">
+            <div class="col-lg-5">
+                <section class="builder-card">
+                    <div class="builder-card-title">
+                        <span class="step-number">1</span>
+                        <div>
+                            <h2>Quiz details</h2>
+                            <p>Subject comes first so students can find it easily.</p>
+                        </div>
+                    </div>
+                    <div class="mb-3">{{ form.subject.label_tag }}{{ form.subject }}{{ form.subject.errors }}</div>
+                    <div class="mb-3">{{ form.title.label_tag }}{{ form.title }}{{ form.title.errors }}</div>
+                    <div class="mb-3">{{ form.description.label_tag }}{{ form.description }}{{ form.description.errors }}</div>
+                    <div class="form-grid">
+                        <div>{{ form.start_time.label_tag }}{{ form.start_time }}<div class="form-text">Optional start</div>{{ form.start_time.errors }}</div>
+                        <div>{{ form.end_time.label_tag }}{{ form.end_time }}<div class="form-text">Optional end</div>{{ form.end_time.errors }}</div>
+                        <div>{{ form.max_attempts.label_tag }}{{ form.max_attempts }}<div class="form-text">Attempts per student</div>{{ form.max_attempts.errors }}</div>
+                        <div class="key-field">{{ form.access_key.label_tag }}{{ form.access_key }}<div class="form-text">Leave blank to generate a key automatically.</div>{{ form.access_key.errors }}</div>
+                    </div>
+                    <div class="switch-row mt-4" id="publish-row">
+                        <div class="switch-copy">
+                            <strong><i class="fas fa-bullhorn"></i> Publish quiz</strong>
+                            <p>Keep off for a draft. Turn on when questions and schedule are ready.</p>
+                            <small class="publish-state" data-on="Students will see this quiz." data-off="Draft - hidden from students.">Students will see this quiz.</small>
+                            {{ form.is_active.errors }}
+                        </div>
+                        <label class="switch" for="id_is_active">
+                            {{ form.is_active }}
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    {{ form.non_field_errors }}
+                </section>
+            </div>
+
+            <div class="col-lg-7">
+                {% if not object %}
+                    <div class="source-toggle" role="radiogroup" aria-label="How do you want to add questions?">
+                        <span class="source-label">Add questions:</span>
+                        <label class="source-pill"><input type="radio" name="question_source" value="excel"><i class="fas fa-file-excel"></i> Excel import</label>
+                        <label class="source-pill"><input type="radio" name="question_source" value="manual"><i class="fas fa-keyboard"></i> Write manually</label>
+                        <label class="source-pill"><input type="radio" name="question_source" value="both" checked><i class="fas fa-layer-group"></i> Both</label>
+                    </div>
+                    <section class="builder-card import-choice js-import-card">
+                        <div class="builder-card-title">
+                            <span class="step-number">2</span>
+                            <div>
+                                <h2>Bulk import from Excel</h2>
+                                <p>Use this when you already have many questions prepared.</p>
+                            </div>
+                        </div>
+                        <div class="import-create-box">
+                            <div>
+                                <i class="fas fa-file-excel"></i>
+                                <strong>Upload an .xlsx file</strong>
+                                <p>QuizMaster will add question text, four options, correct answer, and order.</p>
+                            </div>
+                            <div class="import-upload">
+                                {{ bulk_form.file }}
+                                {{ bulk_form.file.errors }}
+                                <small class="upload-hint">If you tried creating before and it failed, select your file again - browsers clear it after each attempt.</small>
+                                <a href="{% url 'quiz:download_question_template' %}"><i class="fas fa-download"></i> Download Excel template</a>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="builder-card question-builder mt-4 js-manual-card">
+                        <div class="builder-card-title">
+                            <span class="step-number">3</span>
+                            <div>
+                                <h2>Or write the first question</h2>
+                                <p>Use Step 2, this step, or both - at least one is required.</p>
+                            </div>
+                        </div>
+                        {% for field in question_form %}
+                            <div class="mb-3">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {{ field.errors }}
+                            </div>
+                        {% endfor %}
+                        {{ question_form.non_field_errors }}
+                        <div class="answer-grid">
+                            {% for choice_form in choice_forms %}
+                                <div class="answer-input">
+                                    <span class="answer-letter">{{ forloop.counter }}</span>
+                                    <div>
+                                        {{ choice_form.text }}
+                                        {{ choice_form.text.errors }}
+                                        <div class="form-check mt-2">
+                                            {{ choice_form.is_correct }}
+                                            <label class="form-check-label" for="{{ choice_form.is_correct.id_for_label }}">Correct answer</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% else %}
+                    <section class="builder-card">
+                        <div class="empty-builder">
+                            <i class="fas fa-circle-question"></i>
+                            <h2>Question changes live separately</h2>
+                            <p>Save these quiz settings, then manage questions from the review screen.</p>
+                            <a href="{% url 'quiz:question_list' object.id %}" class="btn btn-primary mt-3">Manage Questions</a>
+                        </div>
+                    </section>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="builder-actions">
+            <a href="{% url 'quiz:quiz_list' %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> {% if object %}Save Changes{% else %}Create Quiz{% endif %}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var toggle = document.getElementById('id_is_active');
+    var state = document.querySelector('.publish-state');
+    if (toggle && state) {
+        function syncState() {
+            state.textContent = toggle.checked ? state.dataset.on : state.dataset.off;
+            state.classList.toggle('is-on', toggle.checked);
+        }
+        toggle.addEventListener('change', syncState);
+        syncState();
+    }
+
+    var sourceRadios = document.querySelectorAll('input[name="question_source"]');
+    var importCard = document.querySelector('.js-import-card');
+    var manualCard = document.querySelector('.js-manual-card');
+    if (sourceRadios.length && importCard && manualCard) {
+        function syncSource() {
+            var v = document.querySelector('input[name="question_source"]:checked').value;
+            importCard.classList.toggle('is-off', v === 'manual');
+            manualCard.classList.toggle('is-off', v === 'excel');
+        }
+        sourceRadios.forEach(function (r) { r.addEventListener('change', syncSource); });
+        syncSource();
+    }
+});
+</script>
+{% endblock %}

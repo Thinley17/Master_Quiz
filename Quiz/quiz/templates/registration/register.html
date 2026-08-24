@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Register | QuizMaster{% endblock %}
+{% block content %}
+<section class="auth-layout">
+    <div class="auth-panel register-panel">
+        <div class="auth-welcome">
+            <span class="landing-badge">QUIZMASTER ACCESS</span>
+            <h1>Start your<br><em>learning.</em></h1>
+            <p>Create your student account and access every published class quiz.</p>
+            <div class="hero-proof">
+                <span><i class="fas fa-check-circle"></i> Free to join</span>
+                <span><i class="fas fa-check-circle"></i> Instant results</span>
+            </div>
+        </div>
+        <div class="auth-shape shape-one"></div>
+        <div class="auth-shape shape-two"></div>
+    </div>
+    <div class="auth-form-side">
+        <div class="auth-form-wrap">
+            <div class="eyebrow">Student registration</div>
+            <h2>Create account</h2>
+            <p class="auth-subtitle">Set up your student account to begin.</p>
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary w-100">Create account <i class="fas fa-arrow-right ms-2"></i></button>
+            </form>
+            <p class="auth-switch">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

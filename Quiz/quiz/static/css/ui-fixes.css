@@ -1,0 +1,247 @@
+.status-active {
+    color: #087a57;
+    background: #d1fae5;
+}
+
+.status-upcoming {
+    color: #a16207;
+    background: #fef3c7;
+}
+
+.status-completed,
+.status-draft {
+    color: #475569;
+    background: #e2e8f0;
+}
+
+.navbar-custom .navbar-toggler {
+    border-color: rgba(255, 255, 255, .45);
+}
+
+.navbar-custom .navbar-toggler-icon {
+    filter: brightness(0) invert(1);
+}
+
+.delete-card {
+    max-width: 560px;
+    margin: 4rem auto;
+    padding: 2rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px #1e40af14;
+    text-align: center;
+}
+
+.delete-card .btn-danger {
+    border-radius: 9px;
+    padding: .65rem 1rem;
+}
+
+html,
+body {
+    overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+    .landing-hero {
+        width: calc(100% + 24px);
+        margin-left: -12px;
+        margin-right: -12px;
+    }
+}
+
+.dashboard-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.metric-card {
+    padding: 1.25rem 1.35rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 8px 22px #1e40af0d;
+}
+
+.metric-card span {
+    display: block;
+    color: var(--muted);
+    font-size: .78rem;
+    font-weight: 700;
+}
+
+.metric-card strong {
+    display: block;
+    margin-top: .35rem;
+    color: var(--navy);
+    font-family: Manrope, sans-serif;
+    font-size: 2rem;
+}
+
+.surface-section {
+    margin-bottom: 1.5rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px #1e40af0d;
+    overflow: hidden;
+}
+
+.section-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.35rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.section-bar h2 {
+    margin: .25rem 0 0;
+    font-family: Manrope, sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.responsive-table {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.responsive-table table {
+    min-width: 700px;
+    margin: 0;
+}
+
+.responsive-table th {
+    color: var(--muted);
+    background: #f8fbff;
+    font-size: .72rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.responsive-table td {
+    color: var(--ink);
+    font-size: .86rem;
+    vertical-align: middle;
+}
+
+.responsive-table td span {
+    display: block;
+    color: var(--muted);
+    font-size: .76rem;
+}
+
+.table-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: .4rem;
+    white-space: nowrap;
+}
+
+.quiz-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.quiz-tile {
+    min-width: 0;
+    padding: 1.25rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 8px 22px #1e40af0d;
+}
+
+.quiz-tile h3 {
+    margin: .9rem 0 .45rem;
+    font-family: Manrope, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.quiz-tile p,
+.tile-meta {
+    color: var(--muted);
+    font-size: .82rem;
+    line-height: 1.55;
+}
+
+.tile-top,
+.tile-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.tile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: 1rem;
+}
+
+.tile-actions .btn {
+    flex: 1 1 auto;
+}
+
+.empty-state,
+.empty-row {
+    padding: 2.5rem 1rem;
+    color: var(--muted);
+    text-align: center;
+}
+
+.empty-state h3 {
+    margin: .8rem 0 .35rem;
+    color: var(--ink);
+    font-family: Manrope, sans-serif;
+    font-size: 1.1rem;
+}
+
+.subject-section {
+    margin-bottom: 2rem;
+}
+
+.section-bar .eyebrow {
+    margin-bottom: .2rem;
+}
+
+@media (max-width: 767px) {
+    .dashboard-head {
+        align-items: start;
+        flex-direction: column;
+    }
+
+    .metric-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .section-bar {
+        align-items: start;
+        flex-direction: column;
+    }
+
+    .quiz-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .responsive-table table {
+        min-width: 680px;
+    }
+}

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}{{ quiz.title }} - QuizMaster{% endblock %}
+
+{% block content %}
+<section class="detail-hero">
+    <div>
+        <div class="eyebrow">{{ quiz.subject.name }}</div>
+        <h1>{{ quiz.title }}</h1>
+        <p>{{ quiz.description|default:"No description has been added for this quiz." }}</p>
+        <div class="detail-badges">
+            <span class="status-pill status-{{ quiz.status_slug }}">{{ quiz.status_label }}</span>
+            <span>{{ quiz.get_question_count }} questions</span>
+            <span>{{ quiz.max_attempts }} attempt{{ quiz.max_attempts|pluralize }}</span>
+        </div>
+    </div>
+    <div class="detail-action-card">
+        {% if user.is_staff %}
+            <div><span>Quiz key</span><strong>{{ quiz.access_key }}</strong></div>
+            <span class="detail-card-label">Teacher controls</span>
+            <strong>{{ teacher_attempt_count }} student attempt{{ teacher_attempt_count|pluralize }}</strong>
+            <a href="{% url 'quiz:question_list' quiz.id %}" class="btn btn-primary w-100">Manage Questions</a>
+            <a href="{% url 'quiz:teacher_quiz_results' quiz.id %}" class="btn btn-outline-primary w-100">View Results</a>
+            <a href="{% url 'quiz:quiz_update' quiz.id %}" class="btn btn-light w-100">Edit Settings</a>
+        {% else %}
+            <span class="detail-card-label">Your access</span>
+            <strong>{{ attempt_count }} / {{ quiz.max_attempts }} attempts used</strong>
+            {% if can_start %}
+                <a href="{% url 'quiz:take_quiz' quiz.id %}" class="btn btn-primary w-100"><i class="fas fa-play"></i> Start Quiz</a>
+            {% elif latest_result %}
+                <a href="{% url 'quiz:result' quiz.id %}" class="btn btn-primary w-100">View Result</a>
+            {% else %}
+                <button class="btn btn-light w-100" disabled>
+                    {% if quiz.status_label == 'Upcoming' %}Not started yet{% elif quiz.status_label == 'Completed' %}Quiz completed{% elif quiz.get_question_count == 0 %}No questions yet{% else %}Not available{% endif %}
+                </button>
+            {% endif %}
+        {% endif %}
+    </div>
+</section>
+
+<div class="detail-grid">
+    <section class="surface-section">
+        <div class="section-bar">
+            <div>
+                <div class="eyebrow">Schedule</div>
+                <h2>Date and time</h2>
+            </div>
+        </div>
+        <div class="info-list">
+            <div><span>Teacher</span><strong>{{ quiz.created_by.username }}</strong></div>
+            <div><span>Starts</span><strong>{% if quiz.start_time %}{{ quiz.start_time|date:"M j, Y g:i A" }}{% else %}Any time{% endif %}</strong></div>
+            <div><span>Ends</span><strong>{% if quiz.end_time %}{{ quiz.end_time|date:"M j, Y g:i A" }}{% else %}No fixed end time{% endif %}</strong></div>
+            <div><span>Duration</span><strong>{% if quiz.duration_minutes %}{{ quiz.duration_minutes }} minutes{% else %}No fixed duration{% endif %}</strong></div>
+        </div>
+    </section>
+
+    <section class="surface-section">
+        <div class="section-bar">
+            <div>
+                <div class="eyebrow">Instructions</div>
+                <h2>Before you start</h2>
+            </div>
+        </div>
+        <ul class="instruction-list">
+            <li>Check the quiz title, subject, and schedule before starting.</li>
+            <li>Answer each question carefully. You can move between questions during the attempt.</li>
+            <li>The quiz will stop accepting answers after the end time.</li>
+            <li>Use the submit confirmation to review answered and unanswered counts.</li>
+        </ul>
+    </section>
+</div>
+{% endblock %}

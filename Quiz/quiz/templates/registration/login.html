@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Login | QuizMaster{% endblock %}
+{% block content %}
+<section class="auth-layout">
+    <div class="auth-panel">
+        <div class="auth-welcome">
+            <span class="landing-badge">WELCOME BACK</span>
+            <h1>Ready for your<br>next <em>quiz?</em></h1>
+            <p>Return to your dashboard, quiz attempts, and results.</p>
+            <div class="hero-proof">
+                <span><i class="fas fa-check-circle"></i> Timed attempts</span>
+                <span><i class="fas fa-check-circle"></i> Subject-based</span>
+            </div>
+        </div>
+        <div class="auth-shape shape-one"></div>
+        <div class="auth-shape shape-two"></div>
+    </div>
+    <div class="auth-form-side">
+        <div class="auth-form-wrap">
+            <h2>Welcome back</h2>
+            <p class="auth-subtitle">Enter your details to continue to QuizMaster.</p>
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {{ field.errors }}
+                        {% if field.name == 'password' %}
+                            <div class="password-help"><a href="{% url 'password_reset' %}">Forgot password?</a></div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary w-100">Login <i class="fas fa-arrow-right ms-2"></i></button>
+            </form>
+            <p class="auth-switch">New to QuizMaster? <a href="{% url 'quiz:register' %}">Create an account</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

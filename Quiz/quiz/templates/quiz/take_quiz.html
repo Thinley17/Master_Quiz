@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block title %}Take Quiz - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+{% if requires_key %}
+<div class="attempt-gate">
+    <div class="gate-icon"><i class="fas fa-key"></i></div>
+    <div class="eyebrow">Private quiz</div>
+    <h1>Enter your quiz key</h1>
+    <p>This quiz is protected by your teacher. Enter the key to unlock the questions.</p>
+    <form method="post">{% csrf_token %}{{ access_form.access_key }}{{ access_form.access_key.errors }}<button type="submit" class="btn btn-primary w-100 mt-3"><i class="fas fa-unlock"></i> Unlock quiz</button></form>
+    <a href="{% url 'quiz:quiz_detail' quiz.id %}" class="btn btn-light mt-2">Back to quiz details</a>
+</div>
+{% else %}
+<div class="exam-shell">
+    <aside class="exam-side">
+        <div class="exam-side-head">
+            <span class="eyebrow">{{ quiz.subject.name }}</span>
+            <h1>{{ quiz.title }}</h1>
+        </div>
+        <div class="timer-card {% if not remaining_seconds %}timer-muted{% endif %}">
+            <span>Time Remaining</span>
+            <strong id="timer-display">{% if remaining_seconds %}Loading...{% else %}No fixed timer{% endif %}</strong>
+        </div>
+        <div class="question-map" aria-label="Question navigation">
+            {% for field in form %}
+                <button type="button" class="question-dot {% if forloop.first %}active{% endif %}" data-target-index="{{ forloop.counter0 }}">{{ forloop.counter }}</button>
+            {% endfor %}
+        </div>
+        <div class="exam-progress">
+            <span id="answered-count">0</span> of {{ question_count }} answered
+        </div>
+    </aside>
+
+    <form method="post" id="quiz-form" class="exam-card" data-remaining-seconds="{{ remaining_seconds|default:'' }}">
+        {% csrf_token %}
+        {% for field in form %}
+            <section class="exam-question {% if not forloop.first %}d-none{% endif %}" data-question-index="{{ forloop.counter0 }}">
+                <div class="question-kicker">Question {{ forloop.counter }} of {{ question_count }}</div>
+                <h2>{{ field.label }}</h2>
+                <div class="option-stack">
+                    {% for radio in field %}
+                        <label class="option-card" for="{{ radio.id_for_label }}">
+                            {{ radio.tag }}
+                            <span>{{ radio.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                {% if field.errors %}
+                    <div class="text-danger small mt-2">{{ field.errors }}</div>
+                {% endif %}
+            </section>
+        {% endfor %}
+
+        <div class="exam-actions">
+            <button type="button" class="btn btn-light" id="prev-question"><i class="fas fa-arrow-left"></i> Previous</button>
+            <button type="button" class="btn btn-outline-primary" id="next-question">Next <i class="fas fa-arrow-right"></i></button>
+            <button type="button" class="btn btn-primary ms-auto" data-bs-toggle="modal" data-bs-target="#submitModal"><i class="fas fa-check"></i> Submit Quiz</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="modal fade" id="submitModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content submit-modal">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-circle-check"></i> Submit quiz?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">Are you sure you want to submit your quiz?</p>
+                <strong id="submit-summary">0 / {{ question_count }} questions answered</strong>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep Working</button>
+                <button type="button" class="btn btn-primary" id="confirm-submit">Submit Quiz</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('quiz-form');
+    const questions = Array.from(document.querySelectorAll('.exam-question'));
+    const dots = Array.from(document.querySelectorAll('.question-dot'));
+    const prev = document.getElementById('prev-question');
+    const next = document.getElementById('next-question');
+    const answeredCount = document.getElementById('answered-count');
+    const submitSummary = document.getElementById('submit-summary');
+    const confirmSubmit = document.getElementById('confirm-submit');
+    const timerDisplay = document.getElementById('timer-display');
+    let current = 0;
+
+    function answerTotal() {
+        let total = 0;
+        questions.forEach(function (question, index) {
+            const answered = Boolean(question.querySelector('input[type="radio"]:checked'));
+            dots[index].classList.toggle('answered', answered);
+            if (answered) total += 1;
+        });
+        answeredCount.textContent = total;
+        submitSummary.textContent = total + ' / ' + questions.length + ' questions answered';
+    }
+
+    function showQuestion(index) {
+        current = Math.max(0, Math.min(index, questions.length - 1));
+        questions.forEach(function (question, questionIndex) {
+            question.classList.toggle('d-none', questionIndex !== current);
+        });
+        dots.forEach(function (dot, dotIndex) {
+            dot.classList.toggle('active', dotIndex === current);
+        });
+        prev.disabled = current === 0;
+        next.disabled = current === questions.length - 1;
+    }
+
+    dots.forEach(function (dot) {
+        dot.addEventListener('click', function () {
+            showQuestion(Number(dot.dataset.targetIndex));
+        });
+    });
+    prev.addEventListener('click', function () { showQuestion(current - 1); });
+    next.addEventListener('click', function () { showQuestion(current + 1); });
+    form.addEventListener('change', answerTotal);
+    confirmSubmit.addEventListener('click', function () { form.submit(); });
+
+    const rawRemaining = form.dataset.remainingSeconds;
+    if (rawRemaining !== '') {
+        let remaining = Number(rawRemaining);
+        function renderTimer() {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            timerDisplay.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+            timerDisplay.closest('.timer-card').classList.toggle('timer-danger', remaining <= 60);
+            if (remaining <= 0) {
+                form.submit();
+                return;
+            }
+            remaining -= 1;
+            window.setTimeout(renderTimer, 1000);
+        }
+        renderTimer();
+    }
+
+    showQuestion(0);
+    answerTotal();
+});
+</script>
+{% endblock %}
