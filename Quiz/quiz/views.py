@@ -1,6 +1,10 @@
 from io import BytesIO
 import io
 import json
+import secrets
+import hashlib
+import logging
+from datetime import timedelta
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -8,12 +12,28 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.db import models, transaction
-from django.http import HttpResponse
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.core.cache import cache
+from django.db import models, transaction, IntegrityError
+from django.http import HttpResponse, HttpResponseForbidden
+from django.core.paginator import Paginator
 from django.utils import timezone
-from .models import Quiz, Question, Choice, Result
-from .forms import QuizForm, QuestionForm, ChoiceForm, QuizTakeForm, BulkQuestionImportForm, RegistrationForm, QuizAccessForm
+from django.utils.dateparse import parse_datetime
+from .models import Quiz, Question, Choice, Result, ActivityLog
+from .forms import QuizForm, QuestionForm, ChoiceForm, QuizTakeForm, BulkQuestionImportForm, RegistrationForm, QuizAccessForm, EmailOTPForm
 from django.contrib.auth import login
+
+logger = logging.getLogger(__name__)
+
+
+def _increment_limited_cache(key, timeout):
+    try:
+        return cache.incr(key)
+    except ValueError:
+        cache.add(key, 1, timeout=timeout)
+        return 1
 
 
 def _local(tag):
@@ -34,6 +54,8 @@ def _xlsx_rows_stdlib(upload):
 
     try:
         with zipfile.ZipFile(io.BytesIO(upload.read())) as zf:
+            if sum(info.file_size for info in zf.infolist()) > 25 * 1024 * 1024:
+                raise ValueError('The uncompressed Excel workbook must be 25 MB or smaller.')
             names = set(zf.namelist())
             shared = []
             if 'xl/sharedStrings.xml' in names:
@@ -220,6 +242,8 @@ def parse_questions_from_excel(upload):
     cleaned_rows = []
     letters = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
     for row_number, row in enumerate(rows_iter, start=2):
+        if row_number > 501:
+            raise ValueError('An import may contain at most 500 questions.')
         if not any(value is not None and str(value).strip() for value in row):
             continue
         question_text = cell(row, positions['question'])
@@ -227,6 +251,8 @@ def parse_questions_from_excel(upload):
         correct = ''.join(character for character in str(cell(row, positions['correct_answer']) or '') if character.isalnum()).casefold()
         if not question_text or not all(choices):
             raise ValueError(f'Row {row_number} needs a question and four choices.')
+        if len(str(question_text).strip()) > 5000 or any(len(str(choice).strip()) > 200 for choice in choices):
+            raise ValueError(f'Row {row_number} contains text that exceeds the allowed length.')
         matching_indices = [
             index
             for index, choice_text in enumerate(choices, start=1)
@@ -245,6 +271,8 @@ def parse_questions_from_excel(upload):
                 order = int(order_value)
             except (TypeError, ValueError):
                 raise ValueError(f'Row {row_number} order must be a whole number.')
+            if not 0 <= order <= 2147483647:
+                raise ValueError(f'Row {row_number} order is outside the allowed range.')
         cleaned_rows.append({
             'source_row': row_number,
             'order': order,
@@ -258,21 +286,37 @@ def parse_questions_from_excel(upload):
 
 
 def clean_question_payload(payload):
+    if not isinstance(payload, str) or len(payload) > 8 * 1024 * 1024:
+        raise ValueError('Import preview is too large. Upload a smaller Excel file.')
     try:
         rows = json.loads(payload)
     except (TypeError, json.JSONDecodeError):
         raise ValueError('Import preview expired. Upload the Excel file again.')
+    if not isinstance(rows, list) or len(rows) > 500:
+        raise ValueError('Import preview must contain at most 500 questions.')
     cleaned_rows = []
     for index, row in enumerate(rows, start=1):
-        question = str(row.get('question', '')).strip()
-        choices = [str(choice).strip() for choice in row.get('choices', [])]
+        if not isinstance(row, dict):
+            raise ValueError(f'Preview row {index} is invalid.')
+        raw_question = row.get('question', '')
+        if not isinstance(raw_question, str):
+            raise ValueError(f'Preview row {index} has invalid question text.')
+        question = raw_question.strip()
+        raw_choices = row.get('choices')
+        if not isinstance(raw_choices, list) or any(not isinstance(choice, str) for choice in raw_choices):
+            raise ValueError(f'Preview row {index} must contain exactly four choices.')
+        choices = [choice.strip() for choice in raw_choices]
         try:
+            if isinstance(row.get('correct_index'), bool):
+                raise ValueError
             correct_index = int(row.get('correct_index'))
         except (TypeError, ValueError):
             raise ValueError(f'Preview row {index} has an invalid correct answer.')
         order = row.get('order')
         if order not in (None, ''):
             try:
+                if isinstance(order, bool) or (isinstance(order, float) and not order.is_integer()):
+                    raise ValueError
                 order = int(order)
             except (TypeError, ValueError):
                 raise ValueError(f'Preview row {index} has an invalid order.')
@@ -280,8 +324,12 @@ def clean_question_payload(payload):
             order = None
         if not question or len(choices) != 4 or not all(choices):
             raise ValueError(f'Preview row {index} needs one question and four choices.')
+        if len(question) > 5000 or any(len(choice) > 200 for choice in choices):
+            raise ValueError(f'Preview row {index} contains text that exceeds the allowed length.')
         if correct_index not in (1, 2, 3, 4):
             raise ValueError(f'Preview row {index} has an invalid correct answer.')
+        if order is not None and not 0 <= order <= 2147483647:
+            raise ValueError(f'Preview row {index} has an invalid order.')
         cleaned_rows.append({
             'source_row': row.get('source_row', index + 1),
             'order': order,
@@ -327,14 +375,125 @@ def get_teacher_quiz_or_redirect(request, quiz_id):
 def home(request):
     return render(request, 'quiz/home.html')
 
+
+@login_required
+def activity_log_view(request):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden('Only administrators can view the activity log.')
+
+    search_query = request.GET.get('q', '').strip()[:100]
+    selected_action = request.GET.get('action', '')
+    logs = ActivityLog.objects.all()
+    if search_query:
+        logs = logs.filter(
+            models.Q(username__icontains=search_query)
+            | models.Q(path__icontains=search_query)
+            | models.Q(ip_address__icontains=search_query)
+        )
+    valid_actions = {value for value, _label in ActivityLog.ACTION_CHOICES}
+    if selected_action in valid_actions:
+        logs = logs.filter(action=selected_action)
+    else:
+        selected_action = ''
+
+    paginator = Paginator(logs, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    pagination_params = request.GET.copy()
+    pagination_params.pop('page', None)
+    return render(request, 'quiz/activity_log.html', {
+        'page_obj': page_obj,
+        'page_range': paginator.get_elided_page_range(page_obj.number),
+        'pagination_query': pagination_params.urlencode(),
+        'search_query': search_query,
+        'selected_action': selected_action,
+        'action_choices': ActivityLog.ACTION_CHOICES,
+        'result_count': logs.count(),
+    })
+
 def register(request):
+    pending = request.session.get('pending_registration')
+
+    if request.method == 'POST' and request.POST.get('start_over'):
+        request.session.pop('pending_registration', None)
+        return redirect('quiz:register')
+
+    if pending and request.method == 'POST':
+        form = EmailOTPForm(request.POST)
+        expires_at = parse_datetime(pending.get('expires_at', ''))
+        if not expires_at or timezone.now() >= expires_at:
+            request.session.pop('pending_registration', None)
+            messages.error(request, 'That code has expired. Please start registration again.')
+            return redirect('quiz:register')
+        if form.is_valid() and check_password(form.cleaned_data['code'], pending['code_hash']):
+            if User.objects.filter(username=pending['username']).exists() or User.objects.filter(email__iexact=pending['email']).exists():
+                request.session.pop('pending_registration', None)
+                messages.error(request, 'That username or email is already in use. Please register again.')
+                return redirect('quiz:register')
+            try:
+                user = User(username=pending['username'], email=pending['email'])
+                user.password = pending['password_hash']
+                user.save()
+            except IntegrityError:
+                request.session.pop('pending_registration', None)
+                messages.error(request, 'That username is already in use. Please register again.')
+                return redirect('quiz:register')
+            request.session.pop('pending_registration', None)
+            login(request, user)
+            messages.success(request, 'Email verified. Your account is ready.')
+            return redirect('quiz:dashboard')
+        if form.is_valid():
+            pending['attempts'] = pending.get('attempts', 0) + 1
+            if pending['attempts'] >= 5:
+                request.session.pop('pending_registration', None)
+                messages.error(request, 'Too many incorrect codes. Start registration again to request a new code.')
+                return redirect('quiz:register')
+            request.session['pending_registration'] = pending
+            form.add_error('code', f'That code is incorrect. {5 - pending["attempts"]} attempts remain.')
+        return render(request, 'registration/register.html', {'otp_form': form, 'pending_email': pending['email']})
+
+    if pending:
+        return render(request, 'registration/register.html', {
+            'otp_form': EmailOTPForm(), 'pending_email': pending['email'],
+        })
+
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, 'Registration successful.')
-            return redirect('quiz:dashboard')
+            code = f'{secrets.randbelow(1_000_000):06d}'
+            email = form.cleaned_data['email']
+            ip = request.META.get('REMOTE_ADDR', 'unknown')
+            ip_hash = hashlib.sha256(ip.encode('utf-8')).hexdigest()
+            email_hash = hashlib.sha256(email.casefold().encode('utf-8')).hexdigest()
+            email_limit_key = f'registration-mail:email:{email_hash}'
+            ip_limit_key = f'registration-mail:ip:{ip_hash}'
+            if cache.get(email_limit_key, 0) >= 5 or cache.get(ip_limit_key, 0) >= 15:
+                form.add_error(None, 'Too many verification requests. Please wait and try again later.')
+                return render(request, 'registration/register.html', {'form': form}, status=429)
+            try:
+                send_mail(
+                    'Your QuizMaster verification code',
+                    f'Your QuizMaster verification code is {code}. It expires in 10 minutes.',
+                    None,
+                    [email],
+                    fail_silently=False,
+                )
+            except Exception:
+                logger.exception('Unable to send a registration verification email.')
+                form.add_error(None, 'We could not send the verification email. Check the email settings and try again.')
+            else:
+                _increment_limited_cache(email_limit_key, 60 * 60)
+                _increment_limited_cache(ip_limit_key, 60 * 60)
+                request.session['pending_registration'] = {
+                    'username': form.cleaned_data['username'],
+                    'email': email,
+                    'password_hash': make_password(form.cleaned_data['password1']),
+                    'code_hash': make_password(code),
+                    'expires_at': (timezone.now() + timedelta(minutes=10)).isoformat(),
+                    'attempts': 0,
+                }
+                return render(request, 'registration/register.html', {
+                    'otp_form': EmailOTPForm(), 'pending_email': email,
+                })
     else:
         form = RegistrationForm()
     return render(request, 'registration/register.html', {'form': form})
@@ -429,20 +588,22 @@ class QuizCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         manual_attempted = bool(manual_text) or bool(filled_choices)
         question_is_valid = choices_valid and bool(manual_text) and len(filled_choices) == 4 and correct_count == 1
 
-        # Which sources the teacher intends to use (segmented control in the UI).
-        source = self.request.POST.get('question_source', 'both')
+        has_import_file = bool(self.request.FILES.get(bulk_form.add_prefix('file')))
+        # Honor the selector; infer a reasonable source for older clients that
+        # submit without it (for example, an Excel upload from a cached page).
+        source = self.request.POST.get('question_source')
         if source not in ('excel', 'manual', 'both'):
-            source = 'both'
+            source = 'both' if has_import_file and manual_attempted else ('excel' if has_import_file else 'manual')
         wants_import = source in ('excel', 'both')
         wants_manual = source in ('manual', 'both')
 
-        use_import = bool(self.request.FILES.get(bulk_form.add_prefix('file')))
+        use_import = wants_import and has_import_file
         import_is_valid = bulk_form.is_valid() if use_import else False
 
         def reload_page():
             return self.render_to_response(self.get_context_data(form=form, question_form=question_form, choice_forms=choice_forms, bulk_form=bulk_form))
 
-        if wants_import and not use_import and not manual_attempted:
+        if wants_import and not has_import_file and not (wants_manual and manual_attempted and question_is_valid):
             bulk_form.add_error('file', 'Choose your Excel .xlsx file. Tip: browsers clear the selected file after every attempt, so re-select it if you are trying again.')
             return reload_page()
         if use_import and not import_is_valid:
@@ -478,7 +639,7 @@ class QuizCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                     transaction.set_rollback(True)
                     bulk_form.add_error('file', str(error))
                     return reload_page()
-            if question_is_valid:
+            if wants_manual and question_is_valid:
                 question = question_form.save(commit=False)
                 question.quiz = new_quiz
                 question.order = (new_quiz.questions.aggregate(max_order=models.Max('order'))['max_order'] or 0) + 1

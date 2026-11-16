@@ -6,6 +6,7 @@ app_name = 'quiz'
 urlpatterns = [
     path('', views.home, name='home'),
     path('register/', views.register, name='register'),
+    path('audit-log/', views.activity_log_view, name='activity_log'),
 
     # Quiz CRUD
     path('quizzes/', views.QuizListView.as_view(), name='quiz_list'),

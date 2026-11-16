@@ -8,7 +8,7 @@
     <form method="post" class="d-flex justify-content-center flex-wrap gap-2">
         {% csrf_token %}
         <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i> Yes, delete</button>
-        <a href="{% url 'quiz:question_list' quiz.id %}" class="btn btn-secondary">Cancel</a>
+        <a href="{% url 'quiz:question_list' quiz.id %}" class="btn btn-cancel">Cancel</a>
     </form>
 </div>
 {% endblock %}

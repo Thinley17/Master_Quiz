@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}Login | QuizMaster{% endblock %}
+{% block main_class %}auth-main{% endblock %}
+{% block header %}{% endblock %}
+{% block footer %}{% endblock %}
 {% block content %}
 <section class="auth-layout">
     <div class="auth-panel">
@@ -12,15 +15,18 @@
                 <span><i class="fas fa-check-circle"></i> Subject-based</span>
             </div>
         </div>
+        {% include 'quiz/partials/auth_illustration.html' %}
         <div class="auth-shape shape-one"></div>
         <div class="auth-shape shape-two"></div>
     </div>
     <div class="auth-form-side">
         <div class="auth-form-wrap">
-            <h2>Welcome back</h2>
-            <p class="auth-subtitle">Enter your details to continue to QuizMaster.</p>
+            <div class="eyebrow">QUIZMASTER ACCOUNT</div>
+            <h2>Hello!</h2>
+            <p class="auth-subtitle">Sign in to continue your learning.</p>
             <form method="post">
                 {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
                 {% for field in form %}
                     <div class="mb-3">
                         {{ field.label_tag }}
@@ -31,7 +37,7 @@
                         {% endif %}
                     </div>
                 {% endfor %}
-                <button type="submit" class="btn btn-primary w-100">Login <i class="fas fa-arrow-right ms-2"></i></button>
+                <button type="submit" class="btn btn-primary w-100">Sign In <i class="fas fa-arrow-right ms-2"></i></button>
             </form>
             <p class="auth-switch">New to QuizMaster? <a href="{% url 'quiz:register' %}">Create an account</a></p>
         </div>

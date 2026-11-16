@@ -11,21 +11,45 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+import importlib.util
+import os
+import secrets
+from urllib.parse import unquote, urlparse
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-z88bl0-3lj27-z^q&_&knj@p!#8u8&4$ux^-o82o#_v=2r+@(5'
+# Local development remains convenient; production must explicitly disable DEBUG.
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').strip().lower() in {'1', 'true', 'yes'}
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Set DJANGO_SECRET_KEY to a private, random value in production.')
+    # Persist a private development key so server restarts do not invalidate every session.
+    local_key_file = BASE_DIR / '.local_secret_key'
+    try:
+        SECRET_KEY = local_key_file.read_text(encoding='utf-8').strip()
+    except FileNotFoundError:
+        SECRET_KEY = secrets.token_urlsafe(64)
+        try:
+            local_key_file.write_text(SECRET_KEY, encoding='utf-8')
+        except FileExistsError:
+            SECRET_KEY = local_key_file.read_text(encoding='utf-8').strip()
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv(
+        'DJANGO_ALLOWED_HOSTS',
+        'localhost,127.0.0.1,testserver' if DEBUG else '',
+    ).split(',') if host.strip()
+]
 
 
 # Application definition
@@ -46,6 +70,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'quiz.middleware.ActivityAuditMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -74,12 +99,44 @@ WSGI_APPLICATION = 'online_quiz.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DJANGO_DATABASE_URL = os.getenv('DJANGO_DATABASE_URL', '').strip()
+if not DEBUG and not DJANGO_DATABASE_URL:
+    raise ImproperlyConfigured('Configure DJANGO_DATABASE_URL for the production database.')
+
+if DJANGO_DATABASE_URL:
+    database_url = urlparse(DJANGO_DATABASE_URL)
+    database_engine = {
+        'postgres': 'django.db.backends.postgresql',
+        'postgresql': 'django.db.backends.postgresql',
+    }.get(database_url.scheme)
+    if not database_engine:
+        raise ImproperlyConfigured('DJANGO_DATABASE_URL must use PostgreSQL.')
+    if not DEBUG and database_url.scheme not in {'postgres', 'postgresql'}:
+        raise ImproperlyConfigured('Production database connections must use PostgreSQL.')
+    database_options = {
+        'sslmode': 'verify-full' if not DEBUG else os.getenv('DJANGO_DB_SSLMODE', 'prefer'),
     }
-}
+    if os.getenv('DJANGO_DATABASE_SSLROOTCERT'):
+        database_options['sslrootcert'] = os.getenv('DJANGO_DATABASE_SSLROOTCERT')
+    DATABASES = {
+        'default': {
+            'ENGINE': database_engine,
+            'NAME': unquote(database_url.path.lstrip('/')),
+            'USER': unquote(database_url.username or ''),
+            'PASSWORD': unquote(database_url.password or ''),
+            'HOST': database_url.hostname or '',
+            'PORT': database_url.port or '5432',
+            'CONN_MAX_AGE': 60,
+            'OPTIONS': database_options,
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -88,9 +145,11 @@ DATABASES = {
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {'user_attributes': ('email',)},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -98,6 +157,18 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+    {
+        'NAME': 'quiz.validators.SpecialCharacterPasswordValidator',
+    },
+]
+
+# Prefer bcrypt when its optional dependency is installed; continue verifying
+# legacy PBKDF2 hashes and upgrade them after a successful login.
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher'
+    if importlib.util.find_spec('bcrypt') else 'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
 ]
 
 
@@ -125,8 +196,65 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Sessions use Django's cryptographically random IDs, rotate at login, and are
+# invalidated at logout. Secure cookies are enabled automatically outside DEBUG.
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60
+SESSION_SAVE_EVERY_REQUEST = False
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()
+]
+
+SECURE_SSL_REDIRECT = os.getenv('DJANGO_SECURE_SSL_REDIRECT', str(not DEBUG)).lower() in {'1', 'true', 'yes'}
+SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_HSTS_SECONDS', '0' if DEBUG else '31536000'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
+SECURE_HSTS_PRELOAD = SECURE_HSTS_SECONDS > 0
+if os.getenv('DJANGO_TRUSTED_SSL_PROXY', '').lower() in {'1', 'true', 'yes'}:
+    # Enable only when a trusted reverse proxy overwrites X-Forwarded-Proto.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+FILE_UPLOAD_PERMISSIONS = 0o640
+
+DJANGO_CACHE_URL = os.getenv('DJANGO_CACHE_URL', '').strip()
+if not DEBUG and not DJANGO_CACHE_URL:
+    raise ImproperlyConfigured('Set DJANGO_CACHE_URL to a shared Redis cache for production login and registration throttling.')
+if not DEBUG and not DJANGO_CACHE_URL.lower().startswith('rediss://'):
+    raise ImproperlyConfigured('Production Redis cache connections must use TLS (rediss://).')
+if DJANGO_CACHE_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': DJANGO_CACHE_URL,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'quizmaster-security-throttle',
+        }
+    }
+
 # Auth redirects
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'quiz:dashboard'
-LOGOUT_REDIRECT_URL = 'quiz:home'
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+LOGOUT_REDIRECT_URL = 'login'
+BREVO_API_KEY = os.getenv('BREVO_API_KEY', '').strip()
+BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', '').strip()
+BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'QuizMaster').strip() or 'QuizMaster'
+BREVO_API_TIMEOUT = int(os.getenv('BREVO_API_TIMEOUT', '20'))
+EMAIL_BACKEND = 'quiz.email_backend.BrevoEmailBackend'
+DEFAULT_FROM_EMAIL = (
+    f'{BREVO_SENDER_NAME} <{BREVO_SENDER_EMAIL}>'
+    if BREVO_SENDER_EMAIL else 'QuizMaster <no-reply@example.invalid>'
+)

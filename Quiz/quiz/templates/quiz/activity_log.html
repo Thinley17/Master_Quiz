@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Audit Log | QuizMaster{% endblock %}
+
+{% block content %}
+<div class="page-heading dashboard-head">
+    <div>
+        <div class="eyebrow">Administrator tools</div>
+        <h1>Audit log</h1>
+        <p class="text-muted mb-0">Review recent activity across QuizMaster.</p>
+    </div>
+</div>
+
+<div class="metric-grid metric-grid-3">
+    <article class="metric-card">
+        <span class="metric-icon"><i class="fas fa-list-check"></i></span>
+        <span>Matching events</span>
+        <strong>{{ result_count }}</strong>
+    </article>
+    <article class="metric-card">
+        <span class="metric-icon icon-green"><i class="fas fa-user-shield"></i></span>
+        <span>Access</span>
+        <strong>Admin only</strong>
+    </article>
+    <article class="metric-card">
+        <span class="metric-icon icon-slate"><i class="far fa-clock"></i></span>
+        <span>Showing</span>
+        <strong>{{ page_obj.object_list|length }} events</strong>
+    </article>
+</div>
+
+<section class="surface-section">
+    <div class="section-bar">
+        <div>
+            <div class="eyebrow">Activity history</div>
+            <h2>Website requests</h2>
+        </div>
+    </div>
+    <div class="p-3 p-md-4 border-bottom">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label for="audit-search">Search activity</label>
+                <input id="audit-search" class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="Username, page, or IP address">
+            </div>
+            <div class="col-md-3">
+                <label for="audit-action">Activity type</label>
+                <select id="audit-action" class="form-select" name="action">
+                    <option value="">All activity</option>
+                    {% for value, label in action_choices %}
+                        <option value="{{ value }}" {% if selected_action == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i> Filter</button>
+                <a class="btn btn-light" href="{% url 'quiz:activity_log' %}">Clear</a>
+            </div>
+        </form>
+    </div>
+    <div class="responsive-table">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Activity</th>
+                    <th>Page</th>
+                    <th>IP address</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in page_obj %}
+                    <tr>
+                        <td>{{ entry.created_at|date:"M j, Y" }}<span>{{ entry.created_at|date:"g:i:s A" }}</span></td>
+                        <td><strong>{{ entry.username|default:"Anonymous" }}</strong></td>
+                        <td>
+                            {% if entry.action == 'submit' %}<span class="status-pill status-upcoming">{{ entry.get_action_display }}</span>
+                            {% elif entry.action == 'delete' or entry.action == 'login_fail' %}<span class="status-pill status-completed">{{ entry.get_action_display }}</span>
+                            {% else %}<span class="status-pill status-active">{{ entry.get_action_display }}</span>{% endif %}
+                            <span>{{ entry.method }}</span>
+                        </td>
+                        <td><code>{{ entry.path }}</code></td>
+                        <td>{{ entry.ip_address|default:"—" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5"><div class="empty-row">No activity matches these filters.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="audit-pagination" aria-label="Audit log pages">
+            <span class="audit-pagination-summary">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page=1" aria-label="First page"><i class="fas fa-angles-left"></i></a></li>
+                    <li class="page-item"><a class="page-link" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Previous page">Previous</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link" aria-hidden="true"><i class="fas fa-angles-left"></i></span></li>
+                    <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                {% endif %}
+                {% for page_number in page_range %}
+                    {% if page_number == page_obj.paginator.ELLIPSIS %}
+                        <li class="page-item disabled"><span class="page-link">{{ page_number }}</span></li>
+                    {% elif page_number == page_obj.number %}
+                        <li class="page-item active"><span class="page-link" aria-current="page">{{ page_number }}</span></li>
+                    {% else %}
+                        <li class="page-item"><a class="page-link" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ page_number }}">{{ page_number }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Next</a></li>
+                    <li class="page-item"><a class="page-link" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ page_obj.paginator.num_pages }}" aria-label="Last page"><i class="fas fa-angles-right"></i></a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Next</span></li>
+                    <li class="page-item disabled"><span class="page-link" aria-hidden="true"><i class="fas fa-angles-right"></i></span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+</section>
+{% endblock %}

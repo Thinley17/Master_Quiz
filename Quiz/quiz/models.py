@@ -105,3 +105,32 @@ class Result(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.quiz.title} - {self.score}%"
+
+
+class ActivityLog(models.Model):
+    ACTION_CHOICES = [
+        ('view', 'Viewed'),
+        ('submit', 'Submitted'),
+        ('update', 'Updated'),
+        ('delete', 'Deleted'),
+        ('other', 'Other request'),
+        ('login_ok', 'Sign-in successful'),
+        ('login_fail', 'Sign-in failed'),
+    ]
+
+    username = models.CharField(max_length=150, blank=True, default='')
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    method = models.CharField(max_length=10)
+    path = models.CharField(max_length=512)
+    status_code = models.PositiveSmallIntegerField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'activity log'
+        verbose_name_plural = 'activity logs'
+
+    def __str__(self):
+        actor = self.username or 'Anonymous'
+        return f'{actor} {self.get_action_display().lower()} {self.path}'

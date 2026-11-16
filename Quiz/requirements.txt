@@ -1,6 +1,11 @@
 Django==4.2.30
 openpyxl==3.1.5
+bcrypt>=4.1,<5
+redis>=5,<6
+psycopg[binary]>=3.1,<4
+python-dotenv>=1.0,<2
 # source venv/Scripts/activate
 # python manage.py migrate
 # python manage.py createsuperuser
-# python manage.py runserver 
+# python manage.py runserver
+# admin - user name - jigmenidup pw - Jigme@1234
