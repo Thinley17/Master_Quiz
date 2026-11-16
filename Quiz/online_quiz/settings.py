@@ -115,7 +115,7 @@ if DJANGO_DATABASE_URL:
     if not DEBUG and database_url.scheme not in {'postgres', 'postgresql'}:
         raise ImproperlyConfigured('Production database connections must use PostgreSQL.')
     database_options = {
-        'sslmode': 'verify-full' if not DEBUG else os.getenv('DJANGO_DB_SSLMODE', 'prefer'),
+        'sslmode': os.getenv('DJANGO_DB_SSLMODE', 'require' if not DEBUG else 'prefer'),
     }
     if os.getenv('DJANGO_DATABASE_SSLROOTCERT'):
         database_options['sslrootcert'] = os.getenv('DJANGO_DATABASE_SSLROOTCERT')

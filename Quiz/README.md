@@ -92,6 +92,7 @@ $env:DJANGO_SECRET_KEY = "<generate a private random value>"
 $env:DJANGO_ALLOWED_HOSTS = "quiz.example.org"
 $env:DJANGO_CSRF_TRUSTED_ORIGINS = "https://quiz.example.org"
 $env:DJANGO_SECURE_SSL_REDIRECT = "True"
+$env:DJANGO_DB_SSLMODE = "require"
 $env:DJANGO_CACHE_URL = "rediss://<private-redis-host>:6379/1"
 $env:DJANGO_DATABASE_URL = "postgresql://<user>:<password>@<private-db-host>:5432/<database>"
 python manage.py check --deploy
@@ -102,10 +103,12 @@ when that proxy overwrites `X-Forwarded-Proto`. Production needs HTTPS end to
 end, a shared private Redis service for rate limits, and secrets supplied by the
 hosting environment. Django does not encrypt the local SQLite file itself: keep
 the database and backups on encrypted storage (or use a managed database with
-encryption at rest and TLS). Production requires PostgreSQL and verifies the
-database server certificate (`sslmode=verify-full`); provide the provider's CA
-bundle with `DJANGO_DATABASE_SSLROOTCERT` if it is not in the system trust
-store. Enable the provider's encryption-at-rest and encrypted-backup options.
+encryption at rest and TLS). Production PostgreSQL connections use TLS with
+`sslmode=require` by default. Providers with a publicly trusted database
+certificate can use `DJANGO_DB_SSLMODE=verify-full`; supply a CA bundle with
+`DJANGO_DATABASE_SSLROOTCERT` when needed. Render's internal PostgreSQL URL
+supports `sslmode=require` for encrypted private-network connections. Enable
+the provider's encryption-at-rest and encrypted-backup options.
 The app limits access to student results by owner and teacher role, but storage
 encryption must be provided by the host/database.
 
