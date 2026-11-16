@@ -231,7 +231,16 @@ FILE_UPLOAD_PERMISSIONS = 0o640
 DJANGO_CACHE_URL = os.getenv('DJANGO_CACHE_URL', '').strip()
 if not DEBUG and not DJANGO_CACHE_URL:
     raise ImproperlyConfigured('Set DJANGO_CACHE_URL to a shared Redis cache for production login and registration throttling.')
-if not DEBUG and not DJANGO_CACHE_URL.lower().startswith('rediss://'):
+cache_url = urlparse(DJANGO_CACHE_URL) if DJANGO_CACHE_URL else None
+render_private_key_value = bool(
+    os.getenv('RENDER', '').strip().lower() == 'true'
+    and cache_url
+    and cache_url.scheme == 'redis'
+    and cache_url.hostname
+    and cache_url.hostname.startswith('red-')
+    and '.' not in cache_url.hostname
+)
+if not DEBUG and not DJANGO_CACHE_URL.lower().startswith('rediss://') and not render_private_key_value:
     raise ImproperlyConfigured('Production Redis cache connections must use TLS (rediss://).')
 if DJANGO_CACHE_URL:
     CACHES = {
